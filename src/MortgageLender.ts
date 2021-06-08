@@ -1,24 +1,56 @@
+import LoanApplication from "./LoanApplication";
+import {LoanStatus} from "./LoanStatus";
 export default class MortgageLender {
     availableFunds:number = 0;
-    private _addFunds: number = 0;
+    //private _addAmt: number = 0;
+    isQualified: boolean = false;
+    pendingFunds: number = 0;
     constructor() {
     }
-
-    public get addFunds() {
-        console.log(this._addFunds);
-        return this._addFunds;
-
+    
+    addFunds(amt: number): number {
+      //console.log(this._addAmt);  
+      this.availableFunds += amt;
+      return this.availableFunds;
     }
-
-    public set addFunds(depositAmt: number){
-        this._addFunds = depositAmt;
+    // keep pending loan amounts in a separate account
+    // so I don't extend too many offers
+    approve(pendingApp:LoanApplication): boolean {
+      if (pendingApp.loanAmount <= this.availableFunds - this.pendingFunds) {
+          pendingApp.loanStatus = LoanStatus.Approved;
+          pendingApp.approve = true;
+      } else {
+        pendingApp.approve = false;
+        pendingApp.loanStatus = LoanStatus.Rejected;
+      }
+      return pendingApp.approve;
     }
-            
-    addFunds(_addFunds: number):number {
-      this._availableFunds += this._addFunds;
-      return this._availableFunds;
+    // Qualifying candidates must have debt-to-income (DTI) less than 36%, 
+    // credit score above 620 and savings worth 25% of requested loan amount.
+  reviewApplication(pendingApp:LoanApplication): boolean {
+    if (pendingApp.dti < 36 && pendingApp.creditScore > 620 && 
+        pendingApp.savings >= pendingApp.loanAmount * 0.25 ) {
+        pendingApp.isQualified = true; 
+          } else {
+      pendingApp.isQualified = false; 
     }
-
-
-}
-
+    return pendingApp.isQualified; 
+  }
+  
+  sendOffer(loanApp:LoanApplication): void {
+    loanApp.loanStatus = LoanStatus.Pending;
+    this.pendingFunds += loanApp.loanAmount;
+    this.availableFunds -= loanApp.loanAmount;
+  }
+  // Release Offer - receive response for loan offers, so that I can update the status of pending loans.
+  releaseOffer(loanApp:LoanApplication): void {
+    if (loanApp.loanStatus === LoanStatus.Accepted) {
+      this.pendingFunds -= loanApp.loanAmount;
+    } else { 
+      if (loanApp.loanStatus === LoanStatus.Rejected) {
+      this.pendingFunds -= loanApp.loanAmount; 
+      this.availableFunds += loanApp.loanAmount;
+      } 
+    }
+  }
+} 
